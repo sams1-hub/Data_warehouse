@@ -1,90 +1,142 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from openpyxl import load_workbook
+from tkinter import Tk, filedialog, messagebox, Button, Label, StringVar, OptionMenu, Frame
+import os
 
-# Function to load the Excel file and display sheet names
-def load_excel(file_path):
-    xls = pd.ExcelFile(file_path)
-    print(f"Sheets available: {xls.sheet_names}")
-    return xls
+def select_file():
+    root = Tk()
+    root.withdraw()
+    return filedialog.askopenfilename(
+        title="Select a file",
+        filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xls *.xlsx"), ("All files", "*.*")]
+    )
 
-# Function to display the first few rows of a selected sheet
-def display_sheet_data(xls, sheet_name, rows=10):
-    df = pd.read_excel(xls, sheet_name=sheet_name)
-    print(f"Displaying first {rows} rows of {sheet_name} sheet:")
+def load_file(file_path):
+    try:
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+            print(f"Loaded CSV file: {file_path}")
+        elif file_path.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(file_path)
+            print(f"Loaded Excel file: {file_path}")
+        else:
+            raise ValueError("Unsupported file format. Use CSV or Excel files.")
+        
+        print(f"Available columns: {', '.join(df.columns)}")
+        display_data(df)
+        return df
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+        return None
+
+def display_data(df, rows=10):
+    print(f"\nDisplaying first {rows} rows of data:")
     print(df.head(rows))
 
-    return df
-
-# Function to visualize data
-def visualize_data(df, column_x, column_y, title="Data Visualization", kind='line'):
+def visualize_data(df, column_x=None, column_y=None, plot_kind='histogram'):
     plt.figure(figsize=(10, 6))
-    if kind == 'line':
-        df.plot(x=column_x, y=column_y, kind='line', title=title)
-    elif kind == 'bar':
-        df.plot(x=column_x, y=column_y, kind='bar', title=title)
-    elif kind == 'scatter':
-        df.plot(x=column_x, y=column_y, kind='scatter', title=title)
-    else:
-        print("Unsupported plot kind. Use 'line', 'bar', or 'scatter'.")
-        return
+    
+    try:
+        if plot_kind == 'line':
+            if column_x and column_y:
+                plt.plot(df[column_x], df[column_y], marker='o')
+                plt.title(f"Line Plot: {column_x} vs {column_y}")
+            else:
+                messagebox.showerror("Error", "Both X and Y columns are required for a line plot.")
+                return
+        elif plot_kind == 'bar':
+            if column_x and column_y:
+                plt.bar(df[column_x], df[column_y])
+                plt.title(f"Bar Plot: {column_x} vs {column_y}")
+            else:
+                messagebox.showerror("Error", "Both X and Y columns are required for a bar plot.")
+                return
+        elif plot_kind == 'scatter':
+            if column_x and column_y:
+                plt.scatter(df[column_x], df[column_y])
+                plt.title(f"Scatter Plot: {column_x} vs {column_y}")
+            else:
+                messagebox.showerror("Error", "Both X and Y columns are required for a scatter plot.")
+                return
+        elif plot_kind == 'histogram':
+            if column_x:
+                plt.hist(df[column_x], bins=10, edgecolor='black')
+                plt.title(f"Histogram: {column_x}")
+            else:
+                messagebox.showerror("Error", "X column is required for a histogram.")
+                return
+        elif plot_kind == 'boxplot':
+            if column_x:
+                plt.boxplot(df[column_x])
+                plt.title(f"Boxplot: {column_x}")
+            else:
+                messagebox.showerror("Error", "X column is required for a boxplot.")
+                return
+        
+        plt.xlabel(column_x if column_x else '')
+        if column_y:
+            plt.ylabel(column_y)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
 
-    plt.xlabel(column_x)
-    plt.ylabel(column_y)
-    plt.show()
+def create_visualization_window(df):
+    root = Tk()
+    root.title("Data Visualization")
+    root.geometry("400x350")
 
-# Function to visualize data for a single sheet
-def visualize_single_sheet(file_path, sheet_name, rows=10, column_x=None, column_y=None, plot_kind='line'):
-    # Load the Excel file
-    xls = load_excel(file_path)
+    Label(root, text="Select columns and plot type:", font=('Arial', 12, 'bold')).grid(row=0, column=0, columnspan=2, pady=10)
 
-    # Display the data from the selected sheet
-    df = display_sheet_data(xls, sheet_name, rows)
+    # Column selection
+    Label(root, text="X-axis column:").grid(row=1, column=0)
+    x_var = StringVar(root)
+    x_var.set(df.columns[0])
+    OptionMenu(root, x_var, *df.columns).grid(row=1, column=1)
 
-    # If no column names are provided, attempt to use the first two columns
-    if column_x is None or column_y is None:
-        column_x = df.columns[0]  # Use the first column as the x-axis
-        column_y = df.columns[1]  # Use the second column as the y-axis
+    Label(root, text="Y-axis column (optional):").grid(row=2, column=0)
+    y_var = StringVar(root)
+    y_var.set('')
+    OptionMenu(root, y_var, '', *df.columns).grid(row=2, column=1)
 
-    # Visualize the data with the chosen columns
-    visualize_data(df, column_x, column_y, title=f"{sheet_name} Data Visualization", kind=plot_kind)
+    # Plot type selection
+    Label(root, text="Plot type:").grid(row=3, column=0)
+    plot_var = StringVar(root)
+    plot_var.set('histogram')
+    plot_types = ['line', 'bar', 'scatter', 'histogram', 'boxplot']
+    OptionMenu(root, plot_var, *plot_types).grid(row=3, column=1)
 
-# Main function to handle file input and visualization options
+    def on_visualize():
+        column_x = x_var.get()
+        column_y = y_var.get() if y_var.get() else None
+        plot_kind = plot_var.get()
+        visualize_data(df, column_x, column_y, plot_kind)
+
+    Button(root, text="Generate Plot", 
+           command=on_visualize,
+           bg='#4CAF50', 
+           fg='white',
+           pady=10).grid(row=4, column=0, columnspan=2, pady=20)
+
+    root.mainloop()
+
 def main():
-    file_path = input("Enter the path to your Excel file: ")
-    
-    # Check if the file exists
-    try:
-        xls = load_excel(file_path)
-    except FileNotFoundError:
-        print(f"File '{file_path}' not found. Please check the path and try again.")
-        return
-
-    # Ask the user which sheet to visualize
-    sheet_name = input(f"Enter the sheet name to visualize (available sheets: {', '.join(xls.sheet_names)}): ")
-
-    # Check if the sheet exists in the Excel file
-    if sheet_name not in xls.sheet_names:
-        print(f"Sheet '{sheet_name}' not found in the file. Please choose a valid sheet name.")
-        return
-
-    # Ask the user for the number of rows to display
-    try:
-        rows = int(input("Enter the number of rows to display (default is 10): ") or 10)
-    except ValueError:
-        print("Invalid input. Defaulting to 10 rows.")
-        rows = 10
-
-    # Ask the user for column names to visualize
-    print("Available columns:", ", ".join(xls.parse(sheet_name).columns))
-    column_x = input(f"Enter the column name for the X-axis (default is the first column): ") or None
-    column_y = input(f"Enter the column name for the Y-axis (default is the second column): ") or None
-    
-    # Ask the user for the plot type
-    plot_kind = input("Enter the plot kind (options: 'line', 'bar', 'scatter', default is 'line'): ") or 'line'
-
-    # Visualize the selected sheet data
-    visualize_single_sheet(file_path, sheet_name, rows, column_x, column_y, plot_kind)
+    while True:
+        print("\nPlease select a file to visualize.")
+        file_path = select_file()
+        
+        if not file_path:
+            print("No file selected. Exiting the program. Goodbye!")
+            break
+            
+        df = load_file(file_path)
+        if df is not None:
+            create_visualization_window(df)
+        
+        if not messagebox.askyesno("Continue", "Do you want to visualize another file?"):
+            print("Exiting the program. Goodbye!")
+            break
 
 if __name__ == "__main__":
     main()
