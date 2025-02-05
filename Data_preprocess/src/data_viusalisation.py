@@ -5,10 +5,12 @@ from tkinter import Tk, filedialog, messagebox, Button, Label, StringVar, Option
 def select_file():
     root = Tk()
     root.withdraw()
-    return filedialog.askopenfilename(
+    file_path = filedialog.askopenfilename(
         title="Select a file",
         filetypes=[("CSV files", "*.csv"), ("Excel files", "*.xls *.xlsx"), ("All files", "*.*")]
     )
+    root.destroy()
+    return file_path
 
 def load_file(file_path):
     try:
@@ -25,10 +27,10 @@ def load_file(file_path):
         messagebox.showerror("File Load Error", str(e))
         return None
 
-
 def analyze_missing_data(df):
     missing_counts = df.isnull().sum()
-    zero_counts = (df == 0).sum()
+    # Only consider numeric columns for zero counts
+    zero_counts = df.select_dtypes(include=['number']).eq(0).sum()
     
     print("Missing Value Analysis:")
     print(missing_counts[missing_counts > 0])
@@ -60,8 +62,6 @@ def analyze_duplicates(df, columns):
     plt.show()
 
 def create_visualization_window(df):
-    from tkinter import messagebox
-
     root = Tk()
     root.title("Data Visualization")
     root.geometry("500x400")
@@ -93,12 +93,12 @@ def create_visualization_window(df):
 
     def on_visualize():
         rows = row_var.get()
-        selected_columns = column_var.get().split(',') if column_var.get() != 'all' else list(df.columns)
+        selected_columns = column_var.get().split(',') if column_var.get().lower() != 'all' else list(df.columns)
         plot_kind = plot_var.get()
 
         try:
             sub_df = df.copy()
-            if rows != 'all':
+            if rows.lower() != 'all':
                 rows = int(rows)
                 sub_df = sub_df.head(rows)
             
@@ -106,47 +106,47 @@ def create_visualization_window(df):
             print(df.head(10))  # Print first 10 rows in the terminal
 
             for column in selected_columns:
-                if column.strip() in sub_df.columns:
+                col = column.strip()
+                if col in sub_df.columns:
                     plt.figure(figsize=(10, 6))
                     if plot_kind == 'bar':
-                        sub_df[column.strip()].value_counts().plot(kind='bar', title=f"Bar Plot: {column.strip()}")
+                        sub_df[col].value_counts().plot(kind='bar', title=f"Bar Plot: {col}")
                     elif plot_kind == 'histogram':
-                        sub_df[column.strip()].hist(bins=10, edgecolor='black')
-                        plt.title(f"Histogram: {column.strip()}")
+                        sub_df[col].hist(bins=10, edgecolor='black')
+                        plt.title(f"Histogram: {col}")
                     elif plot_kind == 'boxplot':
-                        plt.boxplot(sub_df[column.strip()].dropna(), vert=False)
-                        plt.title(f"Boxplot: {column.strip()}")
+                        plt.boxplot(sub_df[col].dropna(), vert=False)
+                        plt.title(f"Boxplot: {col}")
                     else:
-                        plt.title(f"{plot_kind.capitalize()} Plot: {column.strip()}")
-                    plt.xlabel(column.strip())
+                        plt.title(f"{plot_kind.capitalize()} Plot: {col}")
+                    plt.xlabel(col)
                     plt.xticks(rotation=45)
                     plt.tight_layout()
                     plt.show()
                 else:
-                    messagebox.showerror("Error", f"Column {column.strip()} not found in data.")
+                    messagebox.showerror("Error", f"Column '{col}' not found in data.")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Visualization Error", str(e))
 
     def on_analyze():
-        # Retrieve selected columns
-        selected_columns = column_var.get().split(',') if column_var.get() != 'all' else list(df.columns)
+        selected_columns = column_var.get().split(',') if column_var.get().lower() != 'all' else list(df.columns)
         
         print("\nFirst 10 rows of the dataset:")
-        print(df.head(10))  # Print first 10 rows in the terminal
+        print(df.head(10))
 
-        # Analyze missing data
         print("\nMissing values per column:")
         print(df.isnull().sum())
 
-        # Analyze duplicate values
         print("\nDuplicate entries:")
         print(df.duplicated().sum())
 
-        # Analyze duplicates in selected columns
         if selected_columns:
-            print("\nDuplicates in selected columns:")
             duplicate_counts = df[selected_columns].duplicated().sum()
             print(f"Duplicates in {', '.join(selected_columns)}: {duplicate_counts}")
+
+        # Optionally, call the visualization functions for missing data and duplicates:
+        # analyze_missing_data(df)
+        # analyze_duplicates(df, selected_columns)
 
     Button(root, text="Generate Visualization", 
            command=on_visualize,
@@ -156,8 +156,10 @@ def create_visualization_window(df):
            command=on_analyze,
            bg='#2196F3', fg='white').pack(pady=10)
 
-    root.mainloop()
+    Button(root, text="Quit", command=root.destroy,
+           bg='red', fg='white').pack(pady=10)
 
+    root.mainloop()
 
 def main():
     file_path = select_file()
