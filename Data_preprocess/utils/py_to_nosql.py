@@ -2,6 +2,8 @@
 
 #  Utils functions pour les connexion avec cassandra en local ou depuis le cloud) 
 # A utilisé dans le les differents étapes du data process
+# Ici le but est de réalisé le pre-process en recuperant directement les données depuis Cassandra
+# Mais le format reste csv pour l'instant pour vérifié (xlsx est pas mal aussii pour la lisibilité)
 
 ###########################################################################
 

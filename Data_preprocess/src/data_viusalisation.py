@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from tkinter import Tk, filedialog, messagebox, Button, Label, StringVar, OptionMenu, Frame
-import os
+from tkinter import Tk, filedialog, messagebox, Button, Label, StringVar, OptionMenu, Entry, Frame
 
 def select_file():
     root = Tk()
@@ -23,120 +22,133 @@ def load_file(file_path):
             raise ValueError("Unsupported file format. Use CSV or Excel files.")
         
         print(f"Available columns: {', '.join(df.columns)}")
-        display_data(df)
         return df
     except Exception as e:
         messagebox.showerror("Error", str(e))
         return None
 
-def display_data(df, rows=10):
-    print(f"\nDisplaying first {rows} rows of data:")
-    print(df.head(rows))
-
-def visualize_data(df, column_x=None, column_y=None, plot_kind='histogram'):
-    plt.figure(figsize=(10, 6))
+def analyze_missing_data(df):
+    missing_counts = df.isnull().sum()
+    zero_counts = (df == 0).sum()
     
-    try:
-        if plot_kind == 'line':
-            if column_x and column_y:
-                plt.plot(df[column_x], df[column_y], marker='o')
-                plt.title(f"Line Plot: {column_x} vs {column_y}")
-            else:
-                messagebox.showerror("Error", "Both X and Y columns are required for a line plot.")
-                return
-        elif plot_kind == 'bar':
-            if column_x and column_y:
-                plt.bar(df[column_x], df[column_y])
-                plt.title(f"Bar Plot: {column_x} vs {column_y}")
-            else:
-                messagebox.showerror("Error", "Both X and Y columns are required for a bar plot.")
-                return
-        elif plot_kind == 'scatter':
-            if column_x and column_y:
-                plt.scatter(df[column_x], df[column_y])
-                plt.title(f"Scatter Plot: {column_x} vs {column_y}")
-            else:
-                messagebox.showerror("Error", "Both X and Y columns are required for a scatter plot.")
-                return
-        elif plot_kind == 'histogram':
-            if column_x:
-                plt.hist(df[column_x], bins=10, edgecolor='black')
-                plt.title(f"Histogram: {column_x}")
-            else:
-                messagebox.showerror("Error", "X column is required for a histogram.")
-                return
-        elif plot_kind == 'boxplot':
-            if column_x:
-                plt.boxplot(df[column_x])
-                plt.title(f"Boxplot: {column_x}")
-            else:
-                messagebox.showerror("Error", "X column is required for a boxplot.")
-                return
-        
-        plt.xlabel(column_x if column_x else '')
-        if column_y:
-            plt.ylabel(column_y)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.show()
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+    print("Missing Value Analysis:")
+    print(missing_counts[missing_counts > 0])
+    print("\nZero Value Analysis:")
+    print(zero_counts[zero_counts > 0])
+    
+    plt.figure(figsize=(12, 6))
+    plt.bar(missing_counts.index, missing_counts.values, color='orange', label='Missing (NULL)')
+    plt.bar(zero_counts.index, zero_counts.values, color='blue', alpha=0.6, label='Zeros')
+    plt.title("Missing and Zero Values Count")
+    plt.xlabel("Columns")
+    plt.ylabel("Count")
+    plt.xticks(rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def analyze_duplicates(df, columns):
+    duplicate_counts = df.duplicated(subset=columns, keep=False).sum()
+    print(f"\nNumber of duplicate rows based on {columns}: {duplicate_counts}")
+    
+    plt.figure(figsize=(10, 6))
+    if duplicate_counts > 0:
+        plt.bar(["Duplicates", "Unique"], [duplicate_counts, len(df) - duplicate_counts], color=['red', 'green'])
+    else:
+        plt.bar(["Unique"], [len(df)], color='green')
+    plt.title(f"Duplicate Analysis Based on {', '.join(columns)}")
+    plt.ylabel("Count")
+    plt.show()
 
 def create_visualization_window(df):
     root = Tk()
     root.title("Data Visualization")
-    root.geometry("400x350")
+    root.geometry("500x400")
 
-    Label(root, text="Select columns and plot type:", font=('Arial', 12, 'bold')).grid(row=0, column=0, columnspan=2, pady=10)
+    Label(root, text="Select visualization options:", font=('Arial', 12, 'bold')).pack(pady=10)
+
+    # Row selection
+    row_frame = Frame(root)
+    Label(row_frame, text="Rows to visualize (number or 'all'):").pack(side='left')
+    row_var = StringVar(root)
+    row_var.set('all')
+    Entry(row_frame, textvariable=row_var, width=10).pack(side='right')
+    row_frame.pack(pady=5)
 
     # Column selection
-    Label(root, text="X-axis column:").grid(row=1, column=0)
-    x_var = StringVar(root)
-    x_var.set(df.columns[0])
-    OptionMenu(root, x_var, *df.columns).grid(row=1, column=1)
-
-    Label(root, text="Y-axis column (optional):").grid(row=2, column=0)
-    y_var = StringVar(root)
-    y_var.set('')
-    OptionMenu(root, y_var, '', *df.columns).grid(row=2, column=1)
+    column_frame = Frame(root)
+    Label(column_frame, text="Select columns (comma-separated or 'all'):").pack(side='left')
+    column_var = StringVar(root)
+    column_var.set('all')
+    Entry(column_frame, textvariable=column_var, width=20).pack(side='right')
+    column_frame.pack(pady=5)
 
     # Plot type selection
-    Label(root, text="Plot type:").grid(row=3, column=0)
+    Label(root, text="Plot type:").pack()
     plot_var = StringVar(root)
     plot_var.set('histogram')
-    plot_types = ['line', 'bar', 'scatter', 'histogram', 'boxplot']
-    OptionMenu(root, plot_var, *plot_types).grid(row=3, column=1)
+    plot_types = ['bar', 'line', 'scatter', 'histogram', 'boxplot']
+    OptionMenu(root, plot_var, *plot_types).pack(pady=5)
 
     def on_visualize():
-        column_x = x_var.get()
-        column_y = y_var.get() if y_var.get() else None
+        rows = row_var.get()
+        selected_columns = column_var.get().split(',') if column_var.get() != 'all' else list(df.columns)
         plot_kind = plot_var.get()
-        visualize_data(df, column_x, column_y, plot_kind)
+        
+        try:
+            sub_df = df.copy()
+            if rows != 'all':
+                rows = int(rows)
+                sub_df = sub_df.head(rows)
+            
+            for column in selected_columns:
+                if column.strip() in sub_df.columns:
+                    plt.figure(figsize=(10, 6))
+                    if plot_kind == 'bar':
+                        sub_df[column.strip()].value_counts().plot(kind='bar', title=f"Bar Plot: {column.strip()}")
+                    elif plot_kind == 'histogram':
+                        sub_df[column.strip()].hist(bins=10, edgecolor='black')
+                        plt.title(f"Histogram: {column.strip()}")
+                    elif plot_kind == 'boxplot':
+                        plt.boxplot(sub_df[column.strip()].dropna(), vert=False)
+                        plt.title(f"Boxplot: {column.strip()}")
+                    else:
+                        plt.title(f"{plot_kind.capitalize()} Plot: {column.strip()}")
+                    plt.xlabel(column.strip())
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    plt.show()
+                else:
+                    messagebox.showerror("Error", f"Column {column.strip()} not found in data.")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
-    Button(root, text="Generate Plot", 
+    def on_analyze():
+        # Retrieve selected columns
+        selected_columns = column_var.get().split(',') if column_var.get() != 'all' else list(df.columns)
+        analyze_missing_data(df)
+        analyze_duplicates(df, selected_columns)
+
+    Button(root, text="Generate Visualization", 
            command=on_visualize,
-           bg='#4CAF50', 
-           fg='white',
-           pady=10).grid(row=4, column=0, columnspan=2, pady=20)
+           bg='#4CAF50', fg='white').pack(pady=10)
+
+    Button(root, text="Analyze Data", 
+           command=on_analyze,
+           bg='#2196F3', fg='white').pack(pady=10)
 
     root.mainloop()
 
+
 def main():
-    while True:
-        print("\nPlease select a file to visualize.")
-        file_path = select_file()
-        
-        if not file_path:
-            print("No file selected. Exiting the program. Goodbye!")
-            break
-            
-        df = load_file(file_path)
-        if df is not None:
-            create_visualization_window(df)
-        
-        if not messagebox.askyesno("Continue", "Do you want to visualize another file?"):
-            print("Exiting the program. Goodbye!")
-            break
+    file_path = select_file()
+    if not file_path:
+        print("No file selected. Exiting.")
+        return
+    
+    df = load_file(file_path)
+    if df is not None:
+        create_visualization_window(df)
 
 if __name__ == "__main__":
     main()
