@@ -14,18 +14,17 @@ def load_file(file_path):
     try:
         if file_path.endswith('.csv'):
             df = pd.read_csv(file_path)
-            print(f"Loaded CSV file: {file_path}")
         elif file_path.endswith(('.xls', '.xlsx')):
             df = pd.read_excel(file_path)
-            print(f"Loaded Excel file: {file_path}")
         else:
-            raise ValueError("Unsupported file format. Use CSV or Excel files.")
-        
+            raise ValueError("Unsupported file format. Please provide a CSV or Excel file.")
+        print(f"Loaded file: {file_path}")
         print(f"Available columns: {', '.join(df.columns)}")
         return df
     except Exception as e:
-        messagebox.showerror("Error", str(e))
+        messagebox.showerror("File Load Error", str(e))
         return None
+
 
 def analyze_missing_data(df):
     missing_counts = df.isnull().sum()
@@ -61,6 +60,8 @@ def analyze_duplicates(df, columns):
     plt.show()
 
 def create_visualization_window(df):
+    from tkinter import messagebox
+
     root = Tk()
     root.title("Data Visualization")
     root.geometry("500x400")
@@ -94,13 +95,16 @@ def create_visualization_window(df):
         rows = row_var.get()
         selected_columns = column_var.get().split(',') if column_var.get() != 'all' else list(df.columns)
         plot_kind = plot_var.get()
-        
+
         try:
             sub_df = df.copy()
             if rows != 'all':
                 rows = int(rows)
                 sub_df = sub_df.head(rows)
             
+            print("\nFirst 10 rows of the dataset:")
+            print(df.head(10))  # Print first 10 rows in the terminal
+
             for column in selected_columns:
                 if column.strip() in sub_df.columns:
                     plt.figure(figsize=(10, 6))
@@ -126,8 +130,23 @@ def create_visualization_window(df):
     def on_analyze():
         # Retrieve selected columns
         selected_columns = column_var.get().split(',') if column_var.get() != 'all' else list(df.columns)
-        analyze_missing_data(df)
-        analyze_duplicates(df, selected_columns)
+        
+        print("\nFirst 10 rows of the dataset:")
+        print(df.head(10))  # Print first 10 rows in the terminal
+
+        # Analyze missing data
+        print("\nMissing values per column:")
+        print(df.isnull().sum())
+
+        # Analyze duplicate values
+        print("\nDuplicate entries:")
+        print(df.duplicated().sum())
+
+        # Analyze duplicates in selected columns
+        if selected_columns:
+            print("\nDuplicates in selected columns:")
+            duplicate_counts = df[selected_columns].duplicated().sum()
+            print(f"Duplicates in {', '.join(selected_columns)}: {duplicate_counts}")
 
     Button(root, text="Generate Visualization", 
            command=on_visualize,
