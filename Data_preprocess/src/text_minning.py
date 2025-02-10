@@ -4,6 +4,7 @@ from collections import Counter
 from tkinter import Tk, filedialog
 import re
 
+# Function to select the API key's 
 def select_api_key_file():
     Tk().withdraw()
     file_path = filedialog.askopenfilename(title="Select API Key File")
@@ -15,6 +16,10 @@ def select_api_key_file():
         return None
 
 def extract_text_features(text):
+
+    ####  A modfié par les BA, ajouté des patterns necessaire #####
+
+    # Define the pattterns
     patterns = {
         "dates": r"\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4})\b",
         "emails": r"\b[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\b",
