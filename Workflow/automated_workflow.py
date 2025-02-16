@@ -5,7 +5,8 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from queue import Queue
+from queue import Queue, Empty  # Import Empty exception directly
+
 
 # parent directory to Python path to enable imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -97,6 +98,7 @@ class WorkflowGUI:
                 self.log_queue.task_done()
             except Queue.Empty:
                 break
+            # Schedule the next update
         self.root.after(100, self.update_log_display)
     
     def start_log_monitor(self):
